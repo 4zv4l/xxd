@@ -51,7 +51,7 @@ pub fn main() u8 {
     return 0;
 }
 
-// load reader to writer from hex to byte
+// load reader (hex dump) to writer (as bytes)
 // reverse of dump()
 fn load(reader: anytype, writer: anytype) !void {
     var buff: [68]u8 = undefined; // counting newline
@@ -108,8 +108,6 @@ fn asHex(chunk: []const u8, hex: []u8) []const u8 {
 // write chunk to ascii replacing non printable char by a dot
 // ex: a[\n => a[.
 fn asAscii(chunk: []const u8, ascii: []u8) []const u8 {
-    for (chunk, ascii[0..chunk.len]) |c, *a| {
-        a.* = if (std.ascii.isPrint(c)) c else '.';
-    }
+    for (0.., chunk) |i, c| ascii[i] = if (std.ascii.isPrint(c)) c else '.';
     return ascii[0..chunk.len];
 }
