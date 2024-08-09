@@ -1,3 +1,4 @@
+//! Simple xxd program in zig
 const std = @import("std");
 const io = std.io;
 const allocator = std.heap.page_allocator;
@@ -51,9 +52,11 @@ pub fn main() u8 {
     return 0;
 }
 
-// load reader (hex dump) to writer (as bytes)
-// reverse of dump()
-fn load(reader: anytype, writer: anytype) !void {
+/// load reader (hex dump) to writer (as bytes)
+/// reverse of dump()
+///
+/// ex: 00000000: 6162 6364 6566 6768 696a 6b6c 6d6e 6f0a  abcdefghijklmno. => abcdefghijklmno\n
+pub fn load(reader: anytype, writer: anytype) !void {
     var buff: [68]u8 = undefined; // counting newline
     while (true) {
         const line = try reader.readUntilDelimiterOrEof(&buff, '\n') orelse break;
@@ -67,9 +70,10 @@ fn load(reader: anytype, writer: anytype) !void {
     }
 }
 
-// dump reader to writer as hex and ascii with an offset
-// ex: abcdefghijklmno\n => 00000000: 6162 6364 6566 6768 696a 6b6c 6d6e 6f0a  abcdefghijklmno.
-fn dump(reader: anytype, writer: anytype) !void {
+/// dump reader to writer as hex and ascii with an offset
+///
+/// ex: abcdefghijklmno\n => 00000000: 6162 6364 6566 6768 696a 6b6c 6d6e 6f0a  abcdefghijklmno.
+pub fn dump(reader: anytype, writer: anytype) !void {
     var chunk: [16]u8 = undefined;
     var hexview: [40]u8 = undefined;
     var asciiview: [16]u8 = undefined;
@@ -87,9 +91,10 @@ fn dump(reader: anytype, writer: anytype) !void {
     }
 }
 
-// write chunk to hex per pair of two bytes as hex, separated with a space
-// ex: \n\naa => 0a0a 6161
-fn asHex(chunk: []const u8, hex: []u8) []const u8 {
+/// write chunk to hex per pair of two bytes as hex, separated with a space
+///
+/// ex: \n\naa => 0a0a 6161
+pub fn asHex(chunk: []const u8, hex: []u8) []const u8 {
     var need_space: bool = false;
     var idx: usize = 0;
     for (chunk) |c| {
@@ -105,9 +110,10 @@ fn asHex(chunk: []const u8, hex: []u8) []const u8 {
     return hex[0..idx];
 }
 
-// write chunk to ascii replacing non printable char by a dot
-// ex: a[\n => a[.
-fn asAscii(chunk: []const u8, ascii: []u8) []const u8 {
+/// write chunk to ascii replacing non printable char by a dot
+///
+/// ex: a[\n => a[.
+pub fn asAscii(chunk: []const u8, ascii: []u8) []const u8 {
     for (0.., chunk) |i, c| ascii[i] = if (std.ascii.isPrint(c)) c else '.';
     return ascii[0..chunk.len];
 }
