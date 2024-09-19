@@ -12,10 +12,8 @@ pub fn main() u8 {
     defer std.process.argsFree(allocator, args);
 
     // parse arguments
-    var reverse: bool = false;
+    const reverse: bool = args.len > 1 and std.mem.eql(u8, args[1], "-r");
     const file = blk: {
-        if (args.len > 1 and std.mem.eql(u8, args[1], "-r")) reverse = true;
-
         if (!io.getStdIn().isTty()) break :blk io.getStdIn();
 
         const filename = if (args.len == 2) args[1] else if (args.len == 3) args[2] else {
