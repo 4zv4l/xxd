@@ -1,6 +1,8 @@
 //! Simple xxd program in zig
 const std = @import("std");
 const io = std.io;
+const mem = std.mem;
+const fmt = std.fmt;
 const allocator = std.heap.page_allocator;
 const eprint = std.debug.print;
 
@@ -11,7 +13,7 @@ pub fn main() void {
     defer std.process.argsFree(allocator, args);
 
     // parse arguments
-    const reverse: bool = args.len > 1 and std.mem.eql(u8, args[1], "-r");
+    const reverse: bool = args.len > 1 and mem.eql(u8, args[1], "-r");
     const file = blk: {
         if (!io.getStdIn().isTty()) break :blk io.getStdIn();
 
@@ -50,12 +52,12 @@ pub fn main() void {
 pub fn load(reader: anytype, writer: anytype) !void {
     var buff: [68]u8 = undefined; // counting newline
     while (try reader.readUntilDelimiterOrEof(&buff, '\n')) |line| {
-        const start_idx = (std.mem.indexOf(u8, line, ": ") orelse return error.WrongFormat) + 2;
-        const end_idx = std.mem.indexOf(u8, line, "  ") orelse return error.WrongFormat;
-        var hexit = std.mem.splitScalar(u8, line[start_idx..end_idx], ' ');
+        const start_idx = (mem.indexOf(u8, line, ": ") orelse return error.WrongFormat) + 2;
+        const end_idx = mem.indexOf(u8, line, "  ") orelse return error.WrongFormat;
+        var hexit = mem.splitScalar(u8, line[start_idx..end_idx], ' ');
         while (hexit.next()) |h| {
-            var byteit = std.mem.window(u8, h, 2, 2);
-            while (byteit.next()) |b| try writer.writeByte(try std.fmt.parseUnsigned(u8, b, 16));
+            var byteit = mem.window(u8, h, 2, 2);
+            while (byteit.next()) |b| try writer.writeByte(try fmt.parseUnsigned(u8, b, 16));
         }
     }
 }
@@ -79,7 +81,7 @@ pub fn dump(reader: anytype, writer: anytype) !void {
 /// ex: \n\naa => 0a0a 6161
 pub fn asHex(chunk: []const u8, hex: []u8) []const u8 {
     var idx: usize = 0;
-    for (chunk, 0..) |c, i| idx += (std.fmt.bufPrint(hex[idx..], "{x:0>2}{s}", .{ c, if (i % 2 == 1) " " else "" }) catch unreachable).len;
+    for (chunk, 0..) |c, i| idx += (fmt.bufPrint(hex[idx..], "{x:0>2}{s}", .{ c, if (i % 2 == 1) " " else "" }) catch unreachable).len;
     return hex[0..idx];
 }
 
