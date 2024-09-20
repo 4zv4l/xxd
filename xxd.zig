@@ -4,10 +4,9 @@ const io = std.io;
 const allocator = std.heap.page_allocator;
 const eprint = std.debug.print;
 
-pub fn main() u8 {
+pub fn main() void {
     const args = std.process.argsAlloc(allocator) catch |err| {
-        eprint("xxd: argsAlloc(): {s}\n", .{@errorName(err)});
-        return 1;
+        return eprint("xxd: argsAlloc(): {s}\n", .{@errorName(err)});
     };
     defer std.process.argsFree(allocator, args);
 
@@ -17,14 +16,11 @@ pub fn main() u8 {
         if (!io.getStdIn().isTty()) break :blk io.getStdIn();
 
         const filename = if (args.len == 2) args[1] else if (args.len == 3) args[2] else {
-            eprint("usage: xxd [option] [file]\n\n", .{});
-            eprint("Options:\n    -r     reverse operation (hex dump -> bytes)\n", .{});
-            return 2;
+            return eprint("usage: xxd [-r] [file]\n", .{});
         };
 
         break :blk std.fs.cwd().openFile(filename, .{}) catch |err| {
-            eprint("xxd: {s}: {s}\n", .{ filename, @errorName(err) });
-            return 3;
+            return eprint("xxd: {s}: {s}\n", .{ filename, @errorName(err) });
         };
     };
     defer file.close();
@@ -35,19 +31,16 @@ pub fn main() u8 {
 
     if (reverse) {
         load(bin.reader(), bout.writer()) catch |err| {
-            eprint("xxd: load(): {s}\n", .{@errorName(err)});
-            return 4;
+            return eprint("xxd: load(): {s}\n", .{@errorName(err)});
         };
     } else {
         dump(bin.reader(), bout.writer()) catch |err| {
-            eprint("xxd: dump(): {s}\n", .{@errorName(err)});
-            return 5;
+            return eprint("xxd: dump(): {s}\n", .{@errorName(err)});
         };
     }
 
     // flush buffered writer (stdout)
-    bout.flush() catch return 6;
-    return 0;
+    bout.flush() catch return;
 }
 
 /// load reader (hex dump) to writer (as bytes)
@@ -56,8 +49,7 @@ pub fn main() u8 {
 /// ex: 00000000: 6162 6364 6566 6768 696a 6b6c 6d6e 6f0a  abcdefghijklmno. => abcdefghijklmno\n
 pub fn load(reader: anytype, writer: anytype) !void {
     var buff: [68]u8 = undefined; // counting newline
-    while (true) {
-        const line = try reader.readUntilDelimiterOrEof(&buff, '\n') orelse break;
+    while (try reader.readUntilDelimiterOrEof(&buff, '\n')) |line| {
         const start_idx = (std.mem.indexOf(u8, line, ": ") orelse return error.WrongFormat) + 2;
         const end_idx = std.mem.indexOf(u8, line, "  ") orelse return error.WrongFormat;
         var hexit = std.mem.splitScalar(u8, line[start_idx..end_idx], ' ');
@@ -72,20 +64,13 @@ pub fn load(reader: anytype, writer: anytype) !void {
 ///
 /// ex: abcdefghijklmno\n => 00000000: 6162 6364 6566 6768 696a 6b6c 6d6e 6f0a  abcdefghijklmno.
 pub fn dump(reader: anytype, writer: anytype) !void {
-    var chunk: [16]u8 = undefined;
-    var hexview: [40]u8 = undefined;
-    var asciiview: [16]u8 = undefined;
+    var buff: struct { chunk: [16]u8, hex: [40]u8, ascii: [16]u8 } = undefined;
     var offset: usize = 0;
 
     while (true) : (offset += 0x10) {
-        const len = try reader.read(&chunk);
-        if (len == 0) break;
-
-        try writer.print("{x:0>8}: {s: <40} {s}\n", .{
-            offset,
-            asHex(chunk[0..len], &hexview),
-            asAscii(chunk[0..len], &asciiview),
-        });
+        const chunk = buff.chunk[0..try reader.read(&buff.chunk)];
+        if (chunk.len == 0) break;
+        try writer.print("{x:0>8}: {s: <40} {s}\n", .{ offset, asHex(chunk, &buff.hex), asAscii(chunk, &buff.ascii) });
     }
 }
 
@@ -93,18 +78,8 @@ pub fn dump(reader: anytype, writer: anytype) !void {
 ///
 /// ex: \n\naa => 0a0a 6161
 pub fn asHex(chunk: []const u8, hex: []u8) []const u8 {
-    var need_space: bool = false;
     var idx: usize = 0;
-    for (chunk) |c| {
-        if (need_space) {
-            const t = std.fmt.bufPrint(hex[idx..], "{x:0>2} ", .{c}) catch unreachable;
-            idx += t.len;
-        } else {
-            const t = std.fmt.bufPrint(hex[idx..], "{x:0>2}", .{c}) catch unreachable;
-            idx += t.len;
-        }
-        need_space = !need_space;
-    }
+    for (chunk, 0..) |c, i| idx += (std.fmt.bufPrint(hex[idx..], "{x:0>2}{s}", .{ c, if (i % 2 == 1) " " else "" }) catch unreachable).len;
     return hex[0..idx];
 }
 
